@@ -1,8 +1,7 @@
 package org.example.exercice3_rest.controller;
 
 import jakarta.servlet.http.HttpSession;
-import org.example.exercice3_rest.dto.ProduitResponseDTO;
-import org.example.exercice3_rest.service.ProduitService;
+import org.example.exercice3_rest.service.PanierService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,17 +9,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @RestController
 @RequestMapping("api/panier/")
 public class PanierController {
-    private final ProduitService produitService;
+    private final PanierService panierService;
     private final HttpSession session;
 
-    public PanierController(ProduitService produitService, HttpSession session) {
-        this.produitService = produitService;
+    public PanierController(PanierService panierService, HttpSession session) {
+        this.panierService = panierService;
         this.session = session;
     }
 
@@ -28,63 +26,40 @@ public class PanierController {
     @GetMapping("/ajouter/{id}")
     public ResponseEntity<String> ajouterProduit(@PathVariable Long id) {
         Map<Long, Integer> panier = (Map<Long, Integer>) session.getAttribute("panier");
-        if (panier == null) {
-            panier = new HashMap<>();
+        try{
+            panier = panierService.addItemToPanier(panier, id);
+            session.setAttribute("panier", panier);
+            return ResponseEntity.ok("Produit ajouté au panier");
+        } catch(IllegalStateException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
-
-        //Vérifier que le produit existe
-        try {
-            produitService.get(id);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Produit non trouvé");
-        }
-
-        panier.put(id, panier.getOrDefault(id, 0) + 1);
-        session.setAttribute("panier", panier);
-        return ResponseEntity.ok("Produit ajouté au panier");
     }
 
     //Retire une occurrence du produit seulement
     @GetMapping("/retirer/{id}")
     public ResponseEntity<String> retirerProduit(@PathVariable Long id) {
         Map<Long, Integer> panier = (Map<Long, Integer>) session.getAttribute("panier");
-        if (panier == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Panier inexistant");
-        }
-        if (panier.get(id) == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Produit non trouvé dans le panier");
-        } else{
-            panier.put(id, panier.get(id) - 1);
-            //Si il n'y a plus de quantité dans le panier, alors on retire le produit
-            if (panier.get(id) == 0) {
-                panier.remove(id);
-            }
+        try {
+            panier = panierService.removeItemFromPanier(panier, id);
             session.setAttribute("panier", panier);
+            return ResponseEntity.ok("Produit retiré du panier");
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage()); //Panier inexistant
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage()); //Produit non trouvé dans le panier
         }
-        return ResponseEntity.ok("Produit retiré du panier");
     }
 
     //Affichage
     @GetMapping("/valider")
-    public ResponseEntity<?> validerPanier() {
+    public ResponseEntity<String> validerPanier() {
         Map<Long, Integer> panier = (Map<Long, Integer>) session.getAttribute("panier");
-        if (panier == null || panier.isEmpty()) {
+        String affichagePanier = "";
+        try{
+            affichagePanier = panierService.validerPanier(panier);
+            return ResponseEntity.ok(affichagePanier);
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Panier vide");
         }
-
-        //Récupérer les produits et calculer le total
-        String affichagePanier = "Panier :\n";
-        double total = 0;
-        for (Map.Entry<Long, Integer> entry : panier.entrySet()) {
-            ProduitResponseDTO detail = produitService.get(entry.getKey());
-            total += detail.getPrix() * entry.getValue();
-
-            //String pour afficher le panier;
-            affichagePanier += detail.getNom() + " x" + entry.getValue() + " = " + detail.getPrix() * entry.getValue() + "\n";
-        }
-        affichagePanier += "Total : " + total;
-
-
-        return ResponseEntity.ok(affichagePanier);
     }
 }
