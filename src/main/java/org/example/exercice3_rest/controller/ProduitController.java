@@ -1,6 +1,5 @@
 package org.example.exercice3_rest.controller;
 
-import jakarta.servlet.http.HttpSession;
 import org.example.exercice3_rest.dto.ProduitReceiveDTO;
 import org.example.exercice3_rest.dto.ProduitResponseDTO;
 import org.example.exercice3_rest.service.ProduitService;
@@ -13,11 +12,9 @@ import org.springframework.web.bind.annotation.*;
 public class ProduitSessionController {
 
     private final ProduitService produitService;
-    private final HttpSession session;
 
-    public ProduitSessionController(ProduitService produitService, HttpSession session) {
+    public ProduitSessionController(ProduitService produitService) {
         this.produitService = produitService;
-        this.session = session;
     }
 
     @GetMapping("/{id}")
